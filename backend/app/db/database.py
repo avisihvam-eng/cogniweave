@@ -10,8 +10,8 @@ IS_SQLITE = False
 
 def init_db_connection():
     global engine, async_session, IS_SQLITE
-    sqlite_url = "sqlite+aiosqlite:///./antigravity.db"
-    print(f"[Antigravity] Using SQLite database: {sqlite_url}")
+    sqlite_url = "sqlite+aiosqlite:///./cogniweave.db"
+    print(f"[CogniWeave] Using SQLite database: {sqlite_url}")
     engine = create_async_engine(sqlite_url, echo=False)
     async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     IS_SQLITE = True

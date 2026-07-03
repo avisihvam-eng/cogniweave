@@ -50,7 +50,7 @@ async def main():
     print("[OK] File saved successfully!")
     print(f"Generated Analysis Path: {doc_link}")
     
-    # Check if local files exist (under root antigravity/local_drive/)
+    # Check if local files exist (under root cogniweave/local_drive/)
     local_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "local_drive"))
     csv_path = os.path.join(local_root, "master_index.csv")
     

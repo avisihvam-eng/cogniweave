@@ -3,7 +3,7 @@ import Sidebar from "@/components/Sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Antigravity — AI-Powered Knowledge Compiler",
+  title: "CogniWeave — AI-Powered Knowledge Compiler",
   description: "Transform podcasts, articles, books, and videos into structured, searchable wisdom that compounds over time in Google Workspace.",
 };
 

@@ -98,7 +98,7 @@ class GoogleWorkspaceService:
         
         if not self.use_local:
             try:
-                # 1. Find or create root folder "Antigravity"
+                # 1. Find or create root folder "CogniWeave"
                 root_id = self._get_or_create_folder(settings.DRIVE_ROOT_FOLDER)
                 # 2. Find or create category folder inside root
                 cat_id = self._get_or_create_folder(category, parent_id=root_id)
@@ -187,7 +187,7 @@ class GoogleWorkspaceService:
         if not self.use_local:
             try:
                 # Google Sheets implementation
-                sheet_id = self._get_or_create_sheet("Antigravity Master Index")
+                sheet_id = self._get_or_create_sheet("CogniWeave Master Index")
                 self.sheets_service.spreadsheets().values().append(
                     spreadsheetId=sheet_id,
                     range="A:S",

@@ -16,7 +16,7 @@ from app.services.embedding import get_embedding
 from app.agents.pipeline import run_compilation_pipeline
 from app.services.google_workspace import GoogleWorkspaceService
 
-app = FastAPI(title="Antigravity Knowledge Compiler API")
+app = FastAPI(title="CogniWeave Knowledge Compiler API")
 
 # Configure CORS
 app.add_middleware(

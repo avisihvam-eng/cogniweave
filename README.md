@@ -1,4 +1,4 @@
-# 🚀 Antigravity — AI-Powered Knowledge Compiler
+# 🚀 CogniWeave — AI-Powered Knowledge Compiler
 
 > Every podcast, lecture, YouTube video, article, PDF, or book becomes structured wisdom that compounds over time.
 
@@ -7,9 +7,9 @@
 ![Gemini](https://img.shields.io/badge/Gemini_2.5-Pro_%26_Flash-4285F4?logo=google)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-## What is Antigravity?
+## What is CogniWeave?
 
-Antigravity is **not** a summarizer. It is **not** a note-taking app. It is a **knowledge compiler**.
+CogniWeave is **not** a summarizer. It is **not** a note-taking app. It is a **knowledge compiler**.
 
 It ingests content through a **12-agent AI pipeline** powered by Google Gemini, extracting:
 - 🎯 **Core Insights** — What should I remember?
@@ -49,8 +49,8 @@ It ingests content through a **12-agent AI pipeline** powered by Google Gemini, 
 
 ### 1. Clone
 ```bash
-git clone https://github.com/avisihvam-eng/antigravity.git
-cd antigravity
+git clone https://github.com/avisihvam-eng/cogniweave.git
+cd cogniweave
 ```
 
 ### 2. Backend

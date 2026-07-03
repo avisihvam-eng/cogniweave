@@ -3,20 +3,20 @@
 services:
   db:
     image: pgvector/pgvector:pg16
-    container_name: antigravity-db
+    container_name: cogniweave-db
     ports:
       - '5432:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: antigravity
+      POSTGRES_DB: cogniweave
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
 
   redis:
     image: redis:7-alpine
-    container_name: antigravity-redis
+    container_name: cogniweave-redis
     ports:
       - '6379:6379'
     volumes:
