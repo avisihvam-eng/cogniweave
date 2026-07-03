@@ -16,6 +16,7 @@ import {
 export default function SettingsPage() {
   // Config state
   const [geminiKey, setGeminiKey] = useState("");
+  const [apiUrl, setApiUrl] = useState("http://localhost:8000");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   
@@ -33,6 +34,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       setGeminiKey(localStorage.getItem("GEMINI_API_KEY") || "");
+      setApiUrl(localStorage.getItem("COGNIVEAVE_API_URL") || "http://localhost:8000");
       setClientId(localStorage.getItem("GOOGLE_CLIENT_ID") || "");
       setClientSecret(localStorage.getItem("GOOGLE_CLIENT_SECRET") || "");
       
@@ -51,6 +53,7 @@ export default function SettingsPage() {
     setTimeout(() => {
       if (typeof window !== "undefined") {
         localStorage.setItem("GEMINI_API_KEY", geminiKey);
+        localStorage.setItem("COGNIVEAVE_API_URL", apiUrl);
         localStorage.setItem("GOOGLE_CLIENT_ID", clientId);
         localStorage.setItem("GOOGLE_CLIENT_SECRET", clientSecret);
         
@@ -90,6 +93,20 @@ export default function SettingsPage() {
           </h3>
           
           <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Backend API URL
+              </label>
+              <input
+                type="text"
+                placeholder="http://localhost:8000"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                className="w-full bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl px-4 py-3 mt-2 text-sm text-white focus:outline-none focus:border-[#8b5cf6] transition-colors"
+              />
+              <p className="text-[10px] text-gray-500 mt-1">If using a public tunnel, enter the tunnel URL here (e.g. https://ninety-lines-sell.loca.lt) to bypass browser security blockers.</p>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Gemini API Key

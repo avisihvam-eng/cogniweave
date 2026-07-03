@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/api";
 "use client";
 
 import { useState } from "react";
@@ -51,7 +52,7 @@ export default function SearchPage() {
     setSearched(true);
 
     try {
-      const url = `http://localhost:8000/api/search?query=${encodeURIComponent(searchQuery)}${
+      const url = `${getApiUrl()}/api/search?query=${encodeURIComponent(searchQuery)}${
         category ? `&category=${category}` : ""
       }`;
       const res = await fetch(url);

@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/api";
 "use client";
 
 import { useState } from "react";
@@ -65,7 +66,7 @@ export default function IngestPage() {
 
     simulateProgress(async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/ingest/url", {
+        const res = await fetch(`${getApiUrl()}/api/ingest/url`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestData)
@@ -117,7 +118,7 @@ export default function IngestPage() {
         formData.append("file", file);
         formData.append("user_profile", JSON.stringify({ career, goals, interests }));
         
-        const res = await fetch("http://localhost:8000/api/ingest/file", {
+        const res = await fetch(`${getApiUrl()}/api/ingest/file`, {
           method: "POST",
           body: formData
         });

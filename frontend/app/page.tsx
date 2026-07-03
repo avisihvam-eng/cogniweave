@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/api";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -49,8 +50,8 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const docsRes = await fetch("http://localhost:8000/api/documents");
-      const reportRes = await fetch("http://localhost:8000/api/report");
+      const docsRes = await fetch(`${getApiUrl()}/api/documents`);
+      const reportRes = await fetch(`${getApiUrl()}/api/report`);
       
       if (docsRes.ok && reportRes.ok) {
         const docsData = await docsRes.json();
@@ -119,7 +120,7 @@ export default function Dashboard() {
     // Optimistic UI update
     setDocuments(prev => prev.map(d => d.id === docId ? { ...d, personal_rating: nextRating } : d));
     try {
-      await fetch(`http://localhost:8000/api/documents/${docId}/rate`, {
+      await fetch(`${getApiUrl()}/api/documents/${docId}/rate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rating: nextRating })

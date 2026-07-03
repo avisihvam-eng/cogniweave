@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/api";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -31,7 +32,7 @@ export default function ReportPage() {
 
   const fetchReport = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/report");
+      const res = await fetch(`${getApiUrl()}/api/report`);
       if (res.ok) {
         const json = await res.json();
         setData(json);

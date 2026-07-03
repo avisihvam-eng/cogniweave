@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/api";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -38,7 +39,7 @@ export default function GraphPage() {
 
   const fetchGraphData = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/graph");
+      const res = await fetch(`${getApiUrl()}/api/graph`);
       if (res.ok) {
         const data = await res.json();
         
