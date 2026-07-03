@@ -14,7 +14,7 @@ def get_youtube_video_id(url: str) -> str:
 
 def fetch_youtube_transcript(video_id: str) -> str:
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript_list = YouTubeTranscriptApi().fetch(video_id)
         return " ".join([item["text"] for item in transcript_list])
     except Exception as e:
         print(f"Error fetching YouTube transcript: {e}")
