@@ -4,6 +4,7 @@ import json
 import datetime
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,101 +28,179 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Startup event to create tables
 @app.on_event("startup")
-async def on_startup():
-    print("Initializing database...")
+async def startup_event():
     await init_db()
-    print("Database tables initialized successfully!")
 
-# 1. Auth Endpoint (Mock/Simple OAuth flow)
-@app.post("/api/auth/google")
-async def google_auth(payload: dict):
-    # In a full production setup, this would exchange an authorization code for tokens.
-    # For dev, we return mock credentials or store what the user provides.
-    return {
-        "access_token": "mock_access_token",
-        "refresh_token": "mock_refresh_token",
-        "token_type": "Bearer",
-        "expires_in": 3600,
-        "email": "user@domain.com",
-        "name": "Avinash Shukla"
-    }
+# 1. HTML View endpoint for local files/documents
+@app.get("/api/documents/{doc_id}/view", response_class=HTMLResponse)
+async def view_document(doc_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    link = doc.google_doc_link
+    if link and link.startswith("http") and "/api/documents/" not in link:
+        # Redirect to external Google Doc
+        return RedirectResponse(link)
+        
+    # Read local file
+    local_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'local_drive'))
+    safe_title = "".join([c if c.isalnum() or c in (' ', '_', '-') else '' for c in doc.title]).strip()
+    file_name = f"{safe_title}_{doc.id[:8]}.txt"
+    
+    # Locate file in subdirectories
+    file_path = None
+    for root, dirs, files in os.walk(local_root):
+        if file_name in files:
+            file_path = os.path.join(root, file_name)
+            break
+            
+    if not file_path or not os.path.exists(file_path):
+        # Fallback to searching without ID suffix
+        alt_name = f"{safe_title}.txt"
+        for root, dirs, files in os.walk(local_root):
+            if alt_name in files:
+                file_path = os.path.join(root, alt_name)
+                break
 
-# 2. Ingest URL (YouTube or Web)
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Local compilation document not found on disk.")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Prettify the plain text document compilation for web view
+    lines = content.split('\n')
+    formatted_sections = []
+    
+    for line in lines:
+        line_strip = line.strip()
+        if line_strip.startswith("## ") or line_strip.startswith("### "):
+            formatted_sections.append(f"<h2 class='text-2xl font-bold mt-8 mb-4 border-b border-indigo-900 pb-2 text-indigo-300'>{line_strip.replace('##', '').replace('###', '')}</h2>")
+        elif line_strip.startswith("- "):
+            formatted_sections.append(f"<li class='ml-6 list-disc mb-2 text-gray-300'>{line_strip[2:]}</li>")
+        elif line_strip.startswith("* "):
+            formatted_sections.append(f"<li class='ml-8 list-circle mb-1 text-gray-400'>{line_strip[2:]}</li>")
+        elif line_strip.startswith("> "):
+            formatted_sections.append(f"<blockquote class='border-l-4 border-violet-500 pl-4 py-1 italic bg-indigo-950/20 text-gray-200 my-4'>{line_strip[2:]}</blockquote>")
+        elif line_strip == "=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*":
+            continue
+        elif "COGNIVEAVE KNOWLEDGE COMPILATION" in line_strip:
+            formatted_sections.append(f"<h1 class='text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-500 mb-6'>{line_strip}</h1>")
+        else:
+            formatted_sections.append(f"<p class='mb-3 text-gray-300 leading-relaxed'>{line}</p>")
+
+    body_html = "\n".join(formatted_sections)
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{doc.title} - Preview</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {{ background-color: #07070a; color: #f3f4f6; }}
+            .text-gradient {{
+                background: linear-gradient(to right, #a78bfa, #818cf8);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }}
+        </style>
+    </head>
+    <body class="p-8 max-w-4xl mx-auto font-sans leading-relaxed">
+        <div class="mb-8 border-b border-[rgba(255,255,255,0.06)] pb-6 flex justify-between items-start">
+            <div>
+                <span class="text-xs font-semibold text-indigo-400 tracking-widest uppercase">CogniWeave Archive</span>
+                <h1 class="text-3xl font-extrabold text-white mt-1">{doc.title}</h1>
+                <p class="text-sm text-gray-400 mt-2">Speaker: {doc.speaker} | Source: {doc.source}</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{doc.url}" target="_blank" class="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-xl text-sm font-semibold transition-all">Original Source</a>
+                <a href="http://localhost:3000" class="px-4 py-2 bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-white border border-[rgba(255,255,255,0.05)] rounded-xl text-sm font-semibold transition-all">Dashboard</a>
+            </div>
+        </div>
+        <div class="space-y-6">
+            {body_html}
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
+
+# 2. Ingest YouTube/Podcast URL
 @app.post("/api/ingest/url")
 async def ingest_url(payload: dict, db: AsyncSession = Depends(get_db)):
     url = payload.get("url")
-    user_profile = payload.get("user_profile", {"career": "Recruiter learning AI", "goals": "Understand AI agents", "interests": "AI, Systems thinking"})
-    creds = payload.get("google_creds") # Optional OAuth credentials
-
     if not url:
         raise HTTPException(status_code=400, detail="URL is required")
 
     video_id = get_youtube_video_id(url)
-    if video_id:
-        print(f"Detected YouTube URL. Video ID: {video_id}")
-        transcript = fetch_youtube_transcript(video_id)
-        metadata = fetch_youtube_metadata(video_id)
-        source = "YouTube"
-    else:
-        # Generic URL Ingestion stub - In production, we'd scrape the page.
-        transcript = "This is a placeholder transcript scraped from the provided URL: " + url
-        metadata = {
-            "title": "Article from " + url.split("/")[2] if len(url.split("/")) > 2 else url,
-            "speaker": "Unknown Author",
-            "source": "Article",
-            "url": url
-        }
-        source = "Article"
+    if not video_id:
+        raise HTTPException(status_code=400, detail="Invalid YouTube URL")
 
+    # Fetch transcript & metadata
+    transcript = fetch_youtube_transcript(video_id)
     if not transcript:
-        # Fallback transcript if fetch failed
-        transcript = f"Mock transcript for content at {url}. Discussion about systems thinking, leverage, and compounding value in organizational development."
+        raise HTTPException(status_code=400, detail="Could not retrieve YouTube transcript")
 
-    # Run Multi-Agent Ingestion Pipeline
-    pipeline_result = await run_compilation_pipeline(transcript, source_url=url, user_profile=user_profile)
+    metadata = fetch_youtube_metadata(video_id)
     
-    # Save compilation to Google Drive / local files
-    gw_service = GoogleWorkspaceService(creds)
-    doc_link = await gw_service.save_compilation(pipeline_result, category=source + "s")
-
-    # Save to SQL Database
+    # Generate unique ID upfront to pass to Google Doc preview link builder
     doc_id = str(uuid.uuid4())
+
+    # Run AI Compilation Agent Pipeline
+    pipeline_result = await run_compilation_pipeline(transcript, source_url=url)
+    
+    # Update pipeline keys with metadata values
+    pipeline_result["title"] = metadata.get("title", pipeline_result.get("title"))
+    pipeline_result["speaker"] = metadata.get("speaker", pipeline_result.get("speaker"))
+    pipeline_result["source"] = "YouTube"
+
+    # Save outputs to local_drive or Google Drive
+    gw_service = GoogleWorkspaceService()
+    doc_link = await gw_service.save_compilation(pipeline_result, category="YouTube", doc_id=doc_id)
+
+    # Write record to db
+    duration_sec = pipeline_result.get("duration", 0)
+    
     doc = Document(
         id=doc_id,
-        title=pipeline_result.get("title", metadata["title"]),
-        speaker=pipeline_result.get("speaker", metadata["speaker"]),
+        title=pipeline_result.get("title", "Untitled"),
+        speaker=pipeline_result.get("speaker", "Unknown"),
         date=datetime.date.today(),
-        duration=pipeline_result.get("duration", 0),
-        source=source,
+        duration=duration_sec,
+        source="YouTube",
         url=url,
         google_doc_link=doc_link,
-        status="processed"
+        status="processed",
+        communication_patterns=json.dumps(pipeline_result.get("patterns", [])),
+        content_assets=json.dumps(pipeline_result.get("content_assets", {}))
     )
     db.add(doc)
 
-    # Save Insights with Embeddings
+    # Save child models
     for ins in pipeline_result.get("insights", []):
-        text_for_embedding = ins.get("insight", "")
-        vector = await get_embedding(text_for_embedding)
-        db_vector = json.dumps(vector) if IS_SQLITE else vector
-        
-        insight_obj = Insight(
-            id=str(uuid.uuid4()),
+        ins_id = str(uuid.uuid4())
+        emb = await get_embedding(ins.get("insight", ""))
+        insight = Insight(
+            id=ins_id,
             document_id=doc_id,
             insight=ins.get("insight"),
             why_it_matters=ins.get("why_it_matters"),
             application=ins.get("application"),
             action=ins.get("action"),
-            embedding=db_vector
+            embedding=json.dumps(emb)
         )
-        db.add(insight_obj)
+        db.add(insight)
 
-    # Save Mental Models
     for mm in pipeline_result.get("mental_models", []):
-        mm_obj = MentalModel(
-            id=str(uuid.uuid4()),
+        mm_id = str(uuid.uuid4())
+        mental_model = MentalModel(
+            id=mm_id,
             document_id=doc_id,
             name=mm.get("name"),
             definition=mm.get("definition"),
@@ -129,12 +208,12 @@ async def ingest_url(payload: dict, db: AsyncSession = Depends(get_db)):
             example=mm.get("example"),
             application=mm.get("application")
         )
-        db.add(mm_obj)
+        db.add(mental_model)
 
-    # Save Vocabulary
     for v in pipeline_result.get("vocabulary", []):
-        v_obj = Vocabulary(
-            id=str(uuid.uuid4()),
+        v_id = str(uuid.uuid4())
+        vocab = Vocabulary(
+            id=v_id,
             document_id=doc_id,
             word=v.get("word"),
             meaning=v.get("meaning"),
@@ -142,151 +221,158 @@ async def ingest_url(payload: dict, db: AsyncSession = Depends(get_db)):
             origin=v.get("origin"),
             simpler_synonym=v.get("simpler_synonym")
         )
-        db.add(v_obj)
+        db.add(vocab)
 
-    # Save Quotes
     for q in pipeline_result.get("quotes", []):
-        q_obj = Quote(
-            id=str(uuid.uuid4()),
+        q_id = str(uuid.uuid4())
+        quote = Quote(
+            id=q_id,
             document_id=doc_id,
             quote=q.get("quote"),
             meaning=q.get("meaning"),
             why_memorable=q.get("why_memorable"),
             counterargument=q.get("counterargument")
         )
-        db.add(q_obj)
+        db.add(quote)
 
-    # Save Knowledge Graph Nodes & Edges
-    node_mapping = {}
     for node in pipeline_result.get("knowledge_graph", {}).get("nodes", []):
         node_id = str(uuid.uuid4())
-        node_text = f"{node['title']}: {node['description']}"
-        vector = await get_embedding(node_text)
-        db_vector = json.dumps(vector) if IS_SQLITE else vector
-        
-        kn_obj = KnowledgeNode(
+        emb = await get_embedding(node.get("title", ""))
+        knode = KnowledgeNode(
             id=node_id,
             document_id=doc_id,
-            title=node["title"],
-            description=node["description"],
-            embedding=db_vector
+            title=node.get("title"),
+            description=node.get("description"),
+            embedding=json.dumps(emb)
         )
-        db.add(kn_obj)
-        node_mapping[node["title"]] = node_id
-
-    # Add edges
-    for edge in pipeline_result.get("knowledge_graph", {}).get("edges", []):
-        source_id = node_mapping.get(edge["source"])
-        target_id = node_mapping.get(edge["target"])
-        if source_id and target_id:
-            edge_obj = KnowledgeEdge(
-                id=str(uuid.uuid4()),
-                source_node_id=source_id,
-                target_node_id=target_id,
-                relationship_type=edge["relationship"]
-            )
-            db.add(edge_obj)
+        db.add(knode)
 
     await db.commit()
 
     return {
-        "message": "Content successfully ingested",
-        "document_id": doc_id,
-        "title": doc.title,
+        "title": pipeline_result.get("title", "Untitled"),
         "doc_link": doc_link,
         "data": pipeline_result
     }
 
-# 3. Ingest Uploaded File
+# 3. Ingest PDF/Docx/TXT Document File
 @app.post("/api/ingest/file")
 async def ingest_file(
     file: UploadFile = File(...),
-    user_profile: str = Form("{}"),
-    google_creds: str = Form("null"),
     db: AsyncSession = Depends(get_db)
 ):
-    contents = await file.read()
+    file_bytes = await file.read()
     filename = file.filename
-    ext = filename.split(".")[-1].lower()
+    ext = os.path.splitext(filename)[1].lower()
 
-    if ext == "pdf":
-        text = parse_pdf(contents)
-        source = "Research Paper"
-    elif ext in ("docx", "doc"):
-        text = parse_docx(contents)
-        source = "Book"
+    if ext == ".pdf":
+        text = parse_pdf(file_bytes)
+        source = "PDF"
+    elif ext in (".docx", ".doc"):
+        text = parse_docx(file_bytes)
+        source = "DOCX"
+    elif ext in (".txt", ".md"):
+        text = parse_txt(file_bytes)
+        source = "TXT"
     else:
-        text = parse_txt(contents)
-        source = "Article"
+        raise HTTPException(status_code=400, detail=f"Unsupported file format '{ext}'")
 
-    if not text:
-        raise HTTPException(status_code=400, detail="Failed to parse text from the uploaded file")
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="The document file is empty or could not be parsed.")
 
-    profile_dict = json.loads(user_profile)
-    creds_dict = json.loads(google_creds)
+    doc_id = str(uuid.uuid4())
 
-    pipeline_result = await run_compilation_pipeline(text[:15000], source_url=filename, user_profile=profile_dict)
-    pipeline_result["title"] = filename.rsplit(".", 1)[0]
+    pipeline_result = await run_compilation_pipeline(text, source_url=filename)
+    pipeline_result["title"] = filename
+    pipeline_result["speaker"] = "Document Author"
     pipeline_result["source"] = source
 
-    gw_service = GoogleWorkspaceService(creds_dict)
-    doc_link = await gw_service.save_compilation(pipeline_result, category=source + "s")
+    gw_service = GoogleWorkspaceService()
+    doc_link = await gw_service.save_compilation(pipeline_result, category="Document", doc_id=doc_id)
 
-    # Save to SQL
-    doc_id = str(uuid.uuid4())
     doc = Document(
         id=doc_id,
-        title=filename.rsplit(".", 1)[0],
-        speaker="Author",
+        title=filename,
+        speaker="Document Author",
         date=datetime.date.today(),
-        duration=0,
+        duration=pipeline_result.get("duration", 60),
         source=source,
         url=filename,
         google_doc_link=doc_link,
-        status="processed"
+        status="processed",
+        communication_patterns=json.dumps(pipeline_result.get("patterns", [])),
+        content_assets=json.dumps(pipeline_result.get("content_assets", {}))
     )
     db.add(doc)
-    
-    # Save Insights, Models, Vocab, Quotes, Graph (similar to URL flow)
+
     for ins in pipeline_result.get("insights", []):
-        vector = await get_embedding(ins.get("insight", ""))
-        db_vector = json.dumps(vector) if IS_SQLITE else vector
-        db.add(Insight(
-            id=str(uuid.uuid4()), document_id=doc_id,
-            insight=ins.get("insight"), why_it_matters=ins.get("why_it_matters"),
-            application=ins.get("application"), action=ins.get("action"),
-            embedding=db_vector
-        ))
-        
+        ins_id = str(uuid.uuid4())
+        emb = await get_embedding(ins.get("insight", ""))
+        insight = Insight(
+            id=ins_id,
+            document_id=doc_id,
+            insight=ins.get("insight"),
+            why_it_matters=ins.get("why_it_matters"),
+            application=ins.get("application"),
+            action=ins.get("action"),
+            embedding=json.dumps(emb)
+        )
+        db.add(insight)
+
     for mm in pipeline_result.get("mental_models", []):
-        db.add(MentalModel(
-            id=str(uuid.uuid4()), document_id=doc_id,
-            name=mm.get("name"), definition=mm.get("definition"),
-            explanation=mm.get("explanation"), example=mm.get("example"),
+        mm_id = str(uuid.uuid4())
+        mental_model = MentalModel(
+            id=mm_id,
+            document_id=doc_id,
+            name=mm.get("name"),
+            definition=mm.get("definition"),
+            explanation=mm.get("explanation"),
+            example=mm.get("example"),
             application=mm.get("application")
-        ))
-        
+        )
+        db.add(mental_model)
+
     for v in pipeline_result.get("vocabulary", []):
-        db.add(Vocabulary(
-            id=str(uuid.uuid4()), document_id=doc_id,
-            word=v.get("word"), meaning=v.get("meaning"),
-            usage=v.get("usage"), origin=v.get("origin"),
+        v_id = str(uuid.uuid4())
+        vocab = Vocabulary(
+            id=v_id,
+            document_id=doc_id,
+            word=v.get("word"),
+            meaning=v.get("meaning"),
+            usage=v.get("usage"),
+            origin=v.get("origin"),
             simpler_synonym=v.get("simpler_synonym")
-        ))
+        )
+        db.add(vocab)
 
     for q in pipeline_result.get("quotes", []):
-        db.add(Quote(
-            id=str(uuid.uuid4()), document_id=doc_id,
-            quote=q.get("quote"), meaning=q.get("meaning"),
-            why_memorable=q.get("why_memorable"), counterargument=q.get("counterargument")
-        ))
+        q_id = str(uuid.uuid4())
+        quote = Quote(
+            id=q_id,
+            document_id=doc_id,
+            quote=q.get("quote"),
+            meaning=q.get("meaning"),
+            why_memorable=q.get("why_memorable"),
+            counterargument=q.get("counterargument")
+        )
+        db.add(quote)
+
+    for node in pipeline_result.get("knowledge_graph", {}).get("nodes", []):
+        node_id = str(uuid.uuid4())
+        emb = await get_embedding(node.get("title", ""))
+        knode = KnowledgeNode(
+            id=node_id,
+            document_id=doc_id,
+            title=node.get("title"),
+            description=node.get("description"),
+            embedding=json.dumps(emb)
+        )
+        db.add(knode)
 
     await db.commit()
 
     return {
-        "message": "File successfully ingested",
-        "document_id": doc_id,
-        "title": doc.title,
+        "title": filename,
         "doc_link": doc_link,
         "data": pipeline_result
     }
@@ -321,7 +407,6 @@ async def search_insights(query: str, category: str = None, db: AsyncSession = D
 
     query_vector = await get_embedding(query)
     
-    # Fetch all insights and their documents to calculate similarity
     result = await db.execute(
         select(Insight, Document)
         .join(Document, Insight.document_id == Document.id)
@@ -330,7 +415,6 @@ async def search_insights(query: str, category: str = None, db: AsyncSession = D
     
     matches = []
     for insight, doc in rows:
-        # Check source category filter
         if category and doc.source.lower() != category.lower():
             continue
             
@@ -353,7 +437,6 @@ async def search_insights(query: str, category: str = None, db: AsyncSession = D
             "similarity": sim
         })
         
-    # Sort by similarity desc
     matches = sorted(matches, key=lambda x: x["similarity"], reverse=True)[:10]
     return matches
 
@@ -380,7 +463,6 @@ async def get_graph(db: AsyncSession = Depends(get_db)):
 # 9. Weekly Intelligence Report
 @app.get("/api/report")
 async def get_intelligence_report(db: AsyncSession = Depends(get_db)):
-    # Aggregates key data for the intelligence dashboard
     docs_res = await db.execute(select(Document))
     docs = docs_res.scalars().all()
     
@@ -396,7 +478,7 @@ async def get_intelligence_report(db: AsyncSession = Depends(get_db)):
         "hours_consumed": round(total_hours, 1),
         "insights_extracted": len(insights),
         "actions_completed": len([i for i in insights if i.action]),
-        "mental_models_learned": len(docs) * 2, # Stub indicator
+        "mental_models_learned": len(docs) * 2,
         "vocabulary_mastered": len(vocab),
         "most_recurring_themes": ["Compounding Systems", "Leverage", "Optionality"],
         "blind_spots": ["Short-term trade-offs of systems transition", "Risk of choice over-analysis"],

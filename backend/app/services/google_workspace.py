@@ -10,11 +10,10 @@ try:
 except ImportError:
     GOOGLE_CLIENTS_AVAILABLE = False
 
-# Helper to format document text
 def format_analysis_doc(data: dict) -> str:
     lines = []
     lines.append("=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-    lines.append("ANTIGRAVITY KNOWLEDGE COMPILATION")
+    lines.append("COGNIVEAVE KNOWLEDGE COMPILATION")
     lines.append("=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*\n")
     lines.append(f"Title: {data.get('title', 'Untitled')}")
     lines.append(f"Speaker: {data.get('speaker', 'Unknown')}")
@@ -51,6 +50,18 @@ def format_analysis_doc(data: dict) -> str:
         lines.append(f"  - Meaning: {q.get('meaning', '')}")
         lines.append(f"  - Why Memorable: {q.get('why_memorable', '')}")
         lines.append(f"  - Counterargument: {q.get('counterargument', '')}\n")
+
+    lines.append("## Communication Patterns")
+    for p in data.get('patterns', []):
+        lines.append(f"- Pattern: {p.get('pattern', '')}")
+        lines.append(f"  - Explanation: {p.get('explanation', '')}")
+        lines.append("  - Original Examples:")
+        for ex in p.get('examples', []):
+            lines.append(f"    * {ex}")
+    lines.append("\n## Metaphors & Analogies")
+    for ma in data.get('metaphors_analogies', []):
+        lines.append(f"- [{ma.get('type', '')}] Concept: {ma.get('concept', '')} -> {ma.get('expression', '')}")
+    lines.append("")
         
     lines.append("## Contrarian Perspective")
     cp = data.get('contrarian', {})
@@ -65,9 +76,21 @@ def format_analysis_doc(data: dict) -> str:
     for t in assets.get('tweets', []):
         lines.append(f"- {t}")
     lines.append(f"\n### LinkedIn Post\n{assets.get('linkedin_post', '')}\n")
-    lines.append(f"### Newsletter Outline\n{assets.get('newsletter_outline', '')}\n")
+    lines.append(f"### Blog Outline\n{assets.get('blog_outline', '')}\n")
+    lines.append(f"### Newsletter Section\n{assets.get('newsletter_section', '')}\n")
+    lines.append("### Conversation Starters")
+    for cs in assets.get('conversation_starters', []):
+        lines.append(f"- {cs}")
+    lines.append("\n### Podcast Discussion Questions")
+    for pq in assets.get('podcast_questions', []):
+        lines.append(f"- {pq}")
+    lines.append("\n### Interview Questions")
+    for iq in assets.get('interview_questions', []):
+        lines.append(f"- {iq}")
+    lines.append("")
 
-    return "\n".join(lines)
+    return "
+".join(lines)
 
 class GoogleWorkspaceService:
     def __init__(self, creds_data=None):
@@ -89,38 +112,29 @@ class GoogleWorkspaceService:
             os.makedirs(self.local_root, exist_ok=True)
             print(f"Running Google Workspace Service in LOCAL mode. Saving to {self.local_root}")
 
-    async def save_compilation(self, data: dict, category: str) -> str:
-        """
-        Saves analysis compilation. Returns URL link (Google Doc URL or Local File Path).
-        """
+    async def save_compilation(self, data: dict, category: str, doc_id: str = None) -> str:
         doc_title = f"{data.get('title', 'Untitled')} - Analysis"
         doc_content = format_analysis_doc(data)
         
         if not self.use_local:
             try:
-                # 1. Find or create root folder "CogniWeave"
                 root_id = self._get_or_create_folder(settings.DRIVE_ROOT_FOLDER)
-                # 2. Find or create category folder inside root
                 cat_id = self._get_or_create_folder(category, parent_id=root_id)
-                # 3. Find or create year folder inside category
                 year = str(datetime.date.today().year)
                 year_id = self._get_or_create_folder(year, parent_id=cat_id)
                 
-                # 4. Create Google Doc
                 doc = self.docs_service.documents().create(body={'title': doc_title}).execute()
-                doc_id = doc.get('documentId')
+                gdoc_id = doc.get('documentId')
                 
-                # 5. Move to year folder
                 self.drive_service.files().update(
-                    fileId=doc_id,
+                    fileId=gdoc_id,
                     addParents=year_id,
                     removeParents='root',
                     fields='id, parents'
                 ).execute()
                 
-                # 6. Populate text content
                 self.docs_service.documents().batchUpdate(
-                    documentId=doc_id,
+                    documentId=gdoc_id,
                     body={
                         'requests': [
                             {
@@ -133,34 +147,36 @@ class GoogleWorkspaceService:
                     }
                 ).execute()
                 
-                doc_link = f"https://docs.google.com/document/d/{doc_id}/edit"
+                doc_link = f"https://docs.google.com/document/d/{gdoc_id}/edit"
                 await self.update_sheets_database(data, doc_link)
                 return doc_link
             except Exception as e:
                 print(f"Error saving to Google Drive: {e}. Saving locally instead.")
                 self.use_local = True
-                # Fallthrough to local saving
                 
         if self.use_local:
             year = str(datetime.date.today().year)
             folder_path = os.path.join(self.local_root, category, year)
             os.makedirs(folder_path, exist_ok=True)
             
-            # Clean title for filename
             safe_title = "".join([c if c.isalnum() or c in (' ', '_', '-') else '' for c in data.get('title', 'Untitled')]).strip()
-            file_path = os.path.join(folder_path, f"{safe_title}.txt")
+            # Append doc_id suffix to avoid name collisions
+            file_name = f"{safe_title}_{doc_id[:8]}.txt" if doc_id else f"{safe_title}.txt"
+            file_path = os.path.join(folder_path, file_name)
             
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(doc_content)
             
-            doc_link = f"file:///{file_path.replace(os.sep, '/')}"
+            # Point to the local backend preview URL instead of file:///
+            if doc_id:
+                doc_link = f"http://localhost:8000/api/documents/{doc_id}/view"
+            else:
+                doc_link = f"file:///{file_path.replace(os.sep, '/')}"
+                
             await self.update_sheets_database(data, doc_link)
             return doc_link
 
     async def update_sheets_database(self, data: dict, doc_link: str):
-        """
-        Appends or updates a row in the Google Sheets Master Index (or local CSV).
-        """
         date_str = datetime.date.today().isoformat()
         row_data = [
             date_str,
@@ -186,7 +202,6 @@ class GoogleWorkspaceService:
         
         if not self.use_local:
             try:
-                # Google Sheets implementation
                 sheet_id = self._get_or_create_sheet("CogniWeave Master Index")
                 self.sheets_service.spreadsheets().values().append(
                     spreadsheetId=sheet_id,
@@ -248,7 +263,6 @@ class GoogleWorkspaceService:
         spreadsheet = self.drive_service.files().create(body=file_metadata, fields='id').execute()
         sheet_id = spreadsheet.get('id')
         
-        # Add headers to the new sheet
         headers = [
             'Date', 'Title', 'Source', 'Speaker', 'Duration', 'Topics', 'URL', 
             'Core Thesis', 'Top Insight', 'Best Quote', 'Mental Models', 'Vocabulary Count',

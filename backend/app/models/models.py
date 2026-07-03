@@ -3,9 +3,7 @@ from sqlalchemy.orm import relationship
 from app.db.database import Base, IS_SQLITE
 import datetime
 
-# Use Text for embeddings (works on SQLite; pgvector on Postgres)
 EmbeddingType = Text
-
 
 class Document(Base):
     __tablename__ = "documents"
@@ -21,6 +19,10 @@ class Document(Base):
     status = Column(String(50), default="processed")
     personal_rating = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
+    
+    # Store extended PRD features as JSON strings
+    communication_patterns = Column(Text)
+    content_assets = Column(Text)
 
     insights = relationship("Insight", back_populates="document", cascade="all, delete-orphan")
     mental_models = relationship("MentalModel", back_populates="document", cascade="all, delete-orphan")

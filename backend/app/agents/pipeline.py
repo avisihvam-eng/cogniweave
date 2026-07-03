@@ -57,6 +57,7 @@ MENTAL_MODEL_SCHEMA = {
     "required": ["mental_models"]
 }
 
+# Require 20 items minimum
 VOCABULARY_SCHEMA = {
     "type": "OBJECT",
     "properties": {
@@ -78,6 +79,7 @@ VOCABULARY_SCHEMA = {
     "required": ["vocabulary"]
 }
 
+# Require 15 items minimum
 QUOTES_SCHEMA = {
     "type": "OBJECT",
     "properties": {
@@ -96,6 +98,37 @@ QUOTES_SCHEMA = {
         }
     },
     "required": ["quotes"]
+}
+
+COMMUNICATION_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "patterns": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "pattern": {"type": "STRING"},
+                    "explanation": {"type": "STRING"},
+                    "examples": {"type": "ARRAY", "items": {"type": "STRING"}}
+                },
+                "required": ["pattern", "explanation", "examples"]
+            }
+        },
+        "metaphors_analogies": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "type": {"type": "STRING"},
+                    "concept": {"type": "STRING"},
+                    "expression": {"type": "STRING"}
+                },
+                "required": ["type", "concept", "expression"]
+            }
+        }
+    },
+    "required": ["patterns", "metaphors_analogies"]
 }
 
 CONTRARIAN_SCHEMA = {
@@ -120,9 +153,21 @@ CONTENT_ASSETS_SCHEMA = {
     "properties": {
         "tweets": {"type": "ARRAY", "items": {"type": "STRING"}},
         "linkedin_post": {"type": "STRING"},
-        "newsletter_outline": {"type": "STRING"}
+        "blog_outline": {"type": "STRING"},
+        "newsletter_section": {"type": "STRING"},
+        "conversation_starters": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "podcast_questions": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "interview_questions": {"type": "ARRAY", "items": {"type": "STRING"}}
     },
-    "required": ["tweets", "linkedin_post", "newsletter_outline"]
+    "required": [
+        "tweets", 
+        "linkedin_post", 
+        "blog_outline", 
+        "newsletter_section", 
+        "conversation_starters", 
+        "podcast_questions", 
+        "interview_questions"
+    ]
 }
 
 KNOWLEDGE_GRAPH_SCHEMA = {
@@ -168,7 +213,6 @@ class GeminiAgent:
             print(f"Warning: GEMINI_API_KEY not set. Mocking output for agent '{self.name}'.")
             return self._generate_mock_response()
 
-        # Check model and append prefix if needed
         model_name = self.model
         if not model_name.startswith("models/"):
             model_name = f"models/{model_name}"
@@ -195,7 +239,7 @@ class GeminiAgent:
 
         try:
             async with httpx.AsyncClient() as client:
-                r = await client.post(url, json=payload, timeout=60.0)
+                r = await client.post(url, json=payload, timeout=90.0)
                 if r.status_code == 200:
                     res_json = r.json()
                     text = res_json['candidates'][0]['content']['parts'][0]['text']
@@ -210,28 +254,23 @@ class GeminiAgent:
             return self._generate_mock_response()
 
     def _generate_mock_response(self) -> dict:
+        # Structured mocks matching the new PRD schemas
         if self.name == "ingestion_agent":
             return {
-                "title": "Ingested Document Summary",
-                "speaker": "Principal Thinker",
+                "title": "Systems Thinking & Leveraged Compounding",
+                "speaker": "Naval Ravikant",
                 "duration": 3600,
-                "topics": ["Decision Making", "Mental Models", "Compounding"]
+                "topics": ["Mental Models", "Compounding", "Leverage"]
             }
         elif self.name == "signal_agent":
             return {
-                "core_thesis": "True wisdom comes from building systems that compound value and enable second-order thinking.",
+                "core_thesis": "Compounding knowledge combined with asymmetric leverage transforms linear learning curves into exponential growth curves.",
                 "insights": [
                     {
                         "insight": "Knowledge is a compounding asset that yields exponential returns over time.",
                         "why_it_matters": "Most people treat information as transactional, forgetting it instantly.",
                         "application": "Build a personal compilation index and review it using spaced repetition.",
                         "action": "Select 3 actions from your reading list today and execute them."
-                    },
-                    {
-                        "insight": "Optimize for optionality in early-stage career choices.",
-                        "why_it_matters": "Committing too early limits potential upside variance.",
-                        "application": "Say yes to diverse projects until you find a strong product-market fit.",
-                        "action": "Allocate 2 hours this week to explore a completely new technical domain."
                     }
                 ]
             }
@@ -240,81 +279,69 @@ class GeminiAgent:
                 "mental_models": [
                     {
                         "name": "Compounding",
-                        "definition": "The process where earnings are reinvested to generate additional earnings over time.",
-                        "explanation": "Small gains consistently repeated build massive divergence between linear and exponential curves.",
-                        "example": "Writing one page of code daily results in a substantial library after 5 years.",
+                        "definition": "Reinvesting gains to generate additional returns over time.",
+                        "explanation": "Small wins build exponential value when repeated consistently.",
+                        "example": "Reading 30 minutes daily accumulates massive wisdom in 5 years.",
                         "application": "Apply compounding to learning by reading 30 minutes every morning."
-                    },
-                    {
-                        "name": "Second-Order Thinking",
-                        "definition": "Thinking about the consequences of consequences, not just the immediate effect.",
-                        "explanation": "First-order thinking solves immediate problems. Second-order thinking looks at how that solution affects things down the line.",
-                        "example": "Adding code fixes that reduce technical debt now but make future expansion impossible.",
-                        "application": "When designing APIs, ask: how will this scale if we support 10x more features?"
                     }
                 ]
             }
         elif self.name == "vocabulary_agent":
+            # Return 20 items to satisfy PRD
             return {
-                "vocabulary": [
-                    {
-                        "word": "Mellifluous",
-                        "meaning": "Sweet or musical; pleasant to hear.",
-                        "usage": "His explanation of systems thinking was mellifluous.",
-                        "origin": "Latin (mel - honey, fluere - to flow)",
-                        "simpler_synonym": "Smooth"
-                    },
-                    {
-                        "word": "Cognitive Surplus",
-                        "meaning": "The free time and mental bandwidth available to society to collaborate on activities.",
-                        "usage": "The internet allows us to pool cognitive surplus to build open source projects.",
-                        "origin": "Modern sociology",
-                        "simpler_synonym": "Free mental energy"
-                    }
-                ]
+                "vocabulary": [{"word": f"VocabWord_{i}", "meaning": "Sophisticated definition", "usage": "Usage example", "origin": "Latin origin", "simpler_synonym": "synonym"} for i in range(1, 21)]
             }
         elif self.name == "quotes_agent":
+            # Return 15 items to satisfy PRD
             return {
-                "quotes": [
+                "quotes": [{"quote": f"Memorable quote line {i}.", "meaning": "Explanation", "why_memorable": "Articulate technique", "counterargument": "Opposing point"} for i in range(1, 16)]
+            }
+        elif self.name == "communication_agent":
+            return {
+                "patterns": [
                     {
-                        "quote": "The best way to think is to write. Writing is thinking.",
-                        "meaning": "Writing forces you to resolve logical inconsistencies in your mind.",
-                        "why_memorable": "It is brief and links cognitive clarity directly to physical action.",
-                        "counterargument": "Some writers overcomplicate ideas that would be clear in speech."
+                        "pattern": "X is overrated. Y compounds.",
+                        "explanation": "Contrasting two concepts to highlight exponential gains.",
+                        "examples": [
+                            "IQ is overrated. Curiosity compounds.",
+                            "Talent is overrated. Execution compounds."
+                        ]
+                    }
+                ],
+                "metaphors_analogies": [
+                    {
+                        "type": "metaphor",
+                        "concept": "Knowledge accumulation",
+                        "expression": "A compounding snow-ball rolling down the hill."
                     }
                 ]
             }
         elif self.name == "contrarian_agent":
             return {
                 "contrarian": {
-                    "opposing_argument": "Compounding knowledge is overrated if you never execute on what you learn. Action is the only true signal.",
-                    "assumptions": "Assumes that learning itself is the goal rather than output.",
-                    "evidence_missing": "Case studies of highly successful individuals who don't keep organized notes.",
+                    "opposing_argument": "Compounding works for structural skills, but transactional domains change too quickly for old lessons to compound.",
+                    "assumptions": "Assumes that baseline cognitive tools never go obsolete.",
+                    "evidence_missing": "Longitudinal data comparing generalized versus specialized domain outputs.",
                     "confidence_score": 8
                 }
             }
         elif self.name == "content_creation_agent":
             return {
-                "tweets": [
-                    "Knowledge isn't power. Compounding knowledge is. Build your personal compiler today.",
-                    "First-order thinkers solve problems. Second-order thinkers prevent them. Optimize for downstream consequences."
-                ],
-                "linkedin_post": "Information is abundant, but structured insight is scarce. Here is how we build compounding knowledge bases using modern AI agents...",
-                "newsletter_outline": "1. The Ingestion Dilemma\n2. Shifting from Summaries to Systems\n3. Actionable Takeaways for Founders"
+                "tweets": ["Tweet 1", "Tweet 2", "Tweet 3", "Tweet 4", "Tweet 5"],
+                "linkedin_post": "Detailed LinkedIn Post...",
+                "blog_outline": "Blog post structure...",
+                "newsletter_section": "Newsletter highlights...",
+                "conversation_starters": ["How do you apply compounding daily?"],
+                "podcast_questions": ["What is the limit of mental leverage?"],
+                "interview_questions": ["How do you distinguish linear vs exponential setups?"]
             }
         elif self.name == "knowledge_graph_agent":
             return {
-                "nodes": [
-                    {"title": "Compounding Knowledge", "description": "The idea that information grows exponentially when compiled systematically."},
-                    {"title": "Second-Order Thinking", "description": "Analyzing downstream effects of choices."}
-                ],
-                "edges": [
-                    {"source": "Compounding Knowledge", "target": "Second-Order Thinking", "relationship": "expands"}
-                ]
+                "nodes": [{"title": "Compounding", "description": "Exponential growth"}],
+                "edges": [{"source": "Compounding", "target": "Leverage", "relationship": "expands"}]
             }
-        return {"result": "mock"}
+        return {}
 
-# Orchestration Pipeline runner
 async def run_compilation_pipeline(content: str, source_url: str = None, user_profile: dict = None) -> dict:
     user_profile = user_profile or {}
     
@@ -325,7 +352,7 @@ async def run_compilation_pipeline(content: str, source_url: str = None, user_pr
         instruction="You are an Ingestion Agent. Extract metadata (title, speaker, duration, and main topics) from this content. Return JSON.",
         response_schema=INGESTION_SCHEMA
     )
-    metadata = await ingestion_agent.run(content)
+    metadata = await ingestion_agent.run(content[:8000])
     if source_url:
         metadata["url"] = source_url
     
@@ -345,27 +372,36 @@ async def run_compilation_pipeline(content: str, source_url: str = None, user_pr
         instruction="You are a Mental Model Agent. Scan the content and identify instances of mental models (e.g. Compounding, Incentives, Systems thinking, Inversion, Network effects). Provide definitions, explanation, example, and how to apply them.",
         response_schema=MENTAL_MODEL_SCHEMA
     )
-    mental_models = await mental_model_agent.run(content)
+    mental_models = await mental_model_agent.run(content[:24000])
 
-    # 4. Vocabulary Agent
+    # 4. Vocabulary Agent (Instruct minimum 20 words)
     vocab_agent = GeminiAgent(
         name="vocabulary_agent",
         model="gemini-2.5-flash",
-        instruction="You are a Vocabulary Agent. Extract sophisticated yet practical vocabulary used in the text. Return a list of words, meanings, usage, origin, and simpler synonyms.",
+        instruction="You are a Vocabulary Agent. Identify and extract at least 20 sophisticated yet practical vocabulary words used or related to the text. Provide meaning, usage, origin, and simpler synonyms for each.",
         response_schema=VOCABULARY_SCHEMA
     )
-    vocab = await vocab_agent.run(content)
+    vocab = await vocab_agent.run(content[:24000])
     
-    # 5. Quotes Agent
+    # 5. Quotes Agent (Instruct minimum 15 quotes)
     quotes_agent = GeminiAgent(
         name="quotes_agent",
         model="gemini-2.5-flash",
-        instruction="You are a Quote Intelligence Agent. Extract memorable, powerful quotes. Explain the meaning, why it is memorable, and write a counterargument to that quote.",
+        instruction="You are a Quote Intelligence Agent. Extract at least 15 memorable, powerful quotes. Explain the meaning, why it is memorable, and write a counterargument to that quote.",
         response_schema=QUOTES_SCHEMA
     )
-    quotes = await quotes_agent.run(content)
+    quotes = await quotes_agent.run(content[:24000])
 
-    # 6. Contrarian Agent
+    # 6. Communication Agent
+    communication_agent = GeminiAgent(
+        name="communication_agent",
+        model="gemini-2.5-flash",
+        instruction="You are a Communication Agent. Identify memorable articulation, metaphors, analogies, and sentence structures. Provide explanations and generate original examples using the same sentence pattern structure.",
+        response_schema=COMMUNICATION_SCHEMA
+    )
+    communication = await communication_agent.run(content[:24000])
+
+    # 7. Contrarian Agent
     contrarian_agent = GeminiAgent(
         name="contrarian_agent",
         model="gemini-2.5-pro",
@@ -374,43 +410,41 @@ async def run_compilation_pipeline(content: str, source_url: str = None, user_pr
     )
     contrarian = await contrarian_agent.run(content)
 
-    # 7. Content Creation Agent
+    # 8. Content Creation Agent
     content_creation_agent = GeminiAgent(
         name="content_creation_agent",
         model="gemini-2.5-flash",
-        instruction="You are a Content Creation Agent. Generate content assets including 3 tweets, 1 LinkedIn post, and a newsletter outline. Make it sound highly original, sharp, and engaging.",
+        instruction="You are a Content Creation Agent. Generate content assets including exactly 5 tweets, 1 LinkedIn post, a blog outline, a newsletter section, conversation starters, podcast questions, and interview questions. Make them highly original and sharp.",
         response_schema=CONTENT_ASSETS_SCHEMA
     )
-    content_assets = await content_creation_agent.run(content)
+    content_assets = await content_creation_agent.run(content[:24000])
 
-    # 8. Knowledge Graph Agent
+    # 9. Knowledge Graph Agent
     graph_agent = GeminiAgent(
         name="knowledge_graph_agent",
         model="gemini-2.5-flash",
         instruction="You are a Knowledge Graph Agent. Convert the core insights into graph nodes and define their relationships (e.g. supports, contradicts, expands, related_to).",
         response_schema=KNOWLEDGE_GRAPH_SCHEMA
     )
-    graph_data = await graph_agent.run(content)
+    graph_data = await graph_agent.run(content[:24000])
 
-    # 9. Personal Intelligence Agent
-    # We personalize the output structures based on the user's career/goals.
+    # 10. Personal Intelligence Agent
     profile_summary = f"Career: {user_profile.get('career', 'Founder')}, Goals: {user_profile.get('goals', 'Growth')}, Interests: {user_profile.get('interests', 'Tech')}"
     personal_agent = GeminiAgent(
         name="personal_agent",
         model="gemini-2.5-flash",
-        instruction=f"You are a Personal Intelligence Agent. Customize these insights to fit this user profile: {profile_summary}. Filter out irrelevant areas, translate analogies to fit their industry, and highlight how the lessons apply to their career.",
+        instruction=f"You are a Personal Intelligence Agent. Customize these insights to fit this user profile: {profile_summary}. Highlight how the lessons apply to their career.",
     )
-    
     insights_str = json.dumps(signal_data.get("insights", []))
     personalized_result = await personal_agent.run(f"User Profile: {profile_summary}\n\nInsights: {insights_str}")
     
-    # 10. Compile final structure
     compiled_data = {
         **metadata,
         **signal_data,
         **mental_models,
         **vocab,
         **quotes,
+        **communication,
         **contrarian,
         "content_assets": content_assets,
         "knowledge_graph": graph_data,
