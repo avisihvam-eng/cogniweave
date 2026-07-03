@@ -131,7 +131,7 @@ export default function IngestPage() {
       } catch (err) {
         console.warn("Backend error. Using mocked upload success.");
         setResult({
-          title: file.name.rsplit ? file.name.rsplit(".", 1)[0] : file.name,
+          title: file.name.includes(".") ? file.name.substring(0, file.name.lastIndexOf(".")) : file.name,
           doc_link: "#",
           data: {
             core_thesis: "Uploaded content describes first-principles architectural decisions.",
