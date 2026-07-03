@@ -89,8 +89,7 @@ def format_analysis_doc(data: dict) -> str:
         lines.append(f"- {iq}")
     lines.append("")
 
-    return "
-".join(lines)
+    return "\n".join(lines)
 
 class GoogleWorkspaceService:
     def __init__(self, creds_data=None):
